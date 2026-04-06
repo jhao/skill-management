@@ -18,7 +18,7 @@ export const Details: React.FC = () => {
 
   if (!selectedNodeId) {
     return (
-      <div className="w-[320px] border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1e1e1e] flex-shrink-0" />
+      <div className="w-80 border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1e1e1e] flex-shrink-0" />
     );
   }
 
@@ -48,7 +48,7 @@ export const Details: React.FC = () => {
   };
 
   return (
-    <div className="w-[320px] border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#2d2d2d] flex-shrink-0 overflow-y-auto p-5">
+    <div className="w-80 border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#2d2d2d] flex-shrink-0 overflow-y-auto p-6">
       <div className="mb-6">
         <div className="flex items-center justify-center w-16 h-16 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-xl mb-4 shadow-sm mx-auto">
           <span className="text-3xl">
@@ -107,7 +107,7 @@ export const Details: React.FC = () => {
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <button
           onClick={() => void openInSystem(node.path)}
           className="w-full flex items-center justify-center px-4 py-2 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors"

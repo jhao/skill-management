@@ -4,6 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+echo "==> Bump patch version"
+npm version patch --no-git-tag-version
+echo "    Version: $(node -p "require('./package.json').version")"
+
 echo "==> Build renderer"
 npm run build
 

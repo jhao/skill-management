@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AppState, Settings, SkillNode } from '../types';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AppState, Settings, SkillNode, StartupLog } from '../types';
 
 interface AppContextType extends AppState {
   setSettings: (settings: Settings) => Promise<void>;
@@ -8,6 +8,7 @@ interface AppContextType extends AppState {
   startScan: () => Promise<void>;
   setShowSettings: (show: boolean) => void;
   setShowOnboarding: (show: boolean) => Promise<void>;
+  setShowCreateSkill: (show: boolean) => void;
   getNodeById: (id: string) => SkillNode | null;
   openInSystem: (targetPath: string) => Promise<void>;
   revealInFinder: (targetPath: string) => Promise<void>;
@@ -27,6 +28,11 @@ const defaultSettings: Settings = {
   scanDepth: 8,
   theme: 'light',
   language: 'zh',
+  aiConfig: {
+    baseUrl: '',
+    apiKey: '',
+    model: 'gpt-4'
+  }
 };
 
 const initialState: AppState = {
@@ -39,6 +45,10 @@ const initialState: AppState = {
   scanCurrentPath: '',
   showSettings: false,
   showOnboarding: true,
+  showCreateSkill: false,
+  appStatus: 'initializing',
+  initError: null,
+  startupLogs: [],
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -57,6 +67,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [state, setState] = useState<AppState>(initialState);
   const [nodeMap, setNodeMap] = useState<Map<string, SkillNode>>(new Map());
   const [clipboard, setClipboard] = useState<{ sourcePath: string; mode: 'copy' | 'cut' } | null>(null);
+  const startTimeRef = useRef(Date.now());
+
+  const addLog = useCallback((message: string, level: StartupLog['level'] = 'info') => {
+    const ms = Date.now() - startTimeRef.current;
+    const elapsed = `+${(ms / 1000).toFixed(2)}s`;
+    setState((s) => ({
+      ...s,
+      startupLogs: [...s.startupLogs, { message, level, elapsed }],
+    }));
+  }, []);
 
   const applySkillsToState = (skills: SkillNode[]) => {
     setState((s) => ({
@@ -94,50 +114,93 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   useEffect(() => {
-    let mounted = true;
+    // 用于清理时取消错误回调，不影响 initialize() 本身的执行
+    let cancelled = false;
+
+    // 安全兜底：15 秒内未完成则显示超时错误
+    const safetyTimer = setTimeout(() => {
+      if (cancelled) return;
+      const msg = '初始化超时（15秒），IPC 通信可能异常，请重启应用';
+      addLog(msg, 'error');
+      setState((s) => ({ ...s, appStatus: 'error', initError: msg }));
+    }, 15000);
 
     const initialize = async () => {
+      addLog('初始化开始');
+
       if (window.electronAPI == null) {
+        addLog('运行于浏览器模式，跳过 Electron 初始化');
         const savedSettings = localStorage.getItem('skills-settings');
         const hasOnboarded = localStorage.getItem('skills-onboarded');
-        if (mounted === false) return;
         if (savedSettings != null) {
           setState((s) => ({ ...s, settings: JSON.parse(savedSettings) }));
+          addLog('已从本地存储读取设置');
         }
         if (hasOnboarded != null) {
           setState((s) => ({ ...s, showOnboarding: false }));
         }
+        clearTimeout(safetyTimer);
+        setState((s) => ({ ...s, appStatus: 'ready' }));
+        addLog('初始化完成');
         return;
       }
 
+      addLog('正在读取应用配置...');
+      // 注意：不使用 mounted/cancelled 提前退出 initialize()。
+      // React StrictMode 会运行两次 effect，第一次的 cleanup 会设 cancelled=true，
+      // 但我们让两次 initialize() 都完整运行（setState 是幂等的），避免第二次
+      // 因第一次被取消而造成 appStatus 永远停在 'initializing'。
       const config = await window.electronAPI.getConfig();
-      if (mounted === false) return;
+      addLog('配置读取成功');
 
+      clearTimeout(safetyTimer);
       setState((s) => ({
         ...s,
         settings: config.settings,
         showOnboarding: config.onboardingDone === false,
+        appStatus: 'ready',
       }));
+      addLog(`引导完成状态: ${config.onboardingDone ? '是' : '否'}`);
 
       if (config.onboardingDone) {
+        addLog('正在检查本地技能缓存...');
         const cachedSkills = await window.electronAPI.getCachedSkills({
           authorizedPaths: config.settings.authorizedPaths,
           scanDepth: config.settings.scanDepth,
         });
+
         if (Array.isArray(cachedSkills)) {
+          addLog(`发现缓存，共 ${cachedSkills.length} 个技能节点，正在加载...`);
           applySkillsToState(cachedSkills);
+          addLog('缓存加载完成');
           return;
         }
+
+        addLog('未找到缓存，准备扫描文件系统...', 'warn');
+        addLog(`扫描路径: ${config.settings.authorizedPaths.join(', ')}`);
+        addLog(`扫描深度: ${config.settings.scanDepth}`);
+        setState((s) => ({
+          ...s,
+          isScanning: true,
+          scanProgress: 0,
+          scanCurrentPath: config.settings.authorizedPaths[0] || '',
+        }));
         await startScanWith(config.settings);
+        addLog('文件系统扫描完成');
       }
     };
 
-    initialize().catch(() => {
-      // keep defaults when initialization fails
+    initialize().catch((error) => {
+      clearTimeout(safetyTimer);
+      if (cancelled) return;
+      const message = error instanceof Error ? error.message : '启动初始化失败，请重启应用。';
+      addLog(`初始化失败: ${message}`, 'error');
+      setState((s) => ({ ...s, appStatus: 'error', initError: message }));
     });
 
     return () => {
-      mounted = false;
+      cancelled = true;
+      clearTimeout(safetyTimer);
     };
   }, []);
 
@@ -155,6 +218,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (window.electronAPI == null || typeof window.electronAPI.onStartupLog !== 'function') {
+      return undefined;
+    }
+    return window.electronAPI.onStartupLog((log) => {
+      setState((s) => ({ ...s, startupLogs: [...s.startupLogs, log] }));
+    });
   }, []);
 
   useEffect(() => {
@@ -223,6 +295,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const setShowSettings = (show: boolean) => {
     setState((s) => ({ ...s, showSettings: show }));
+  };
+
+  const setShowCreateSkill = (show: boolean) => {
+    setState((s) => ({ ...s, showCreateSkill: show }));
   };
 
   const setShowOnboarding = async (show: boolean) => {
@@ -318,6 +394,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       toggleNodeExpansion,
       startScan,
       setShowSettings,
+      setShowCreateSkill,
       setShowOnboarding,
       getNodeById,
       openInSystem,

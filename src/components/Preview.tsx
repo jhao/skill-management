@@ -7,7 +7,36 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SkillNode } from '../types';
 
-const MarkdownPreview: React.FC<{ content: string; theme: string }> = ({ content, theme }) => (
+const processYamlFrontmatter = (content: string): string => {
+  // Check if content starts with ---
+  if (!content.trim().startsWith('---')) return content;
+  
+  // Find the second ---
+  const lines = content.split('\n');
+  let endIndex = -1;
+  
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      endIndex = i;
+      break;
+    }
+  }
+  
+  if (endIndex === -1) return content;
+  
+  // Extract YAML content
+  const yamlLines = lines.slice(0, endIndex + 1);
+  const yamlContent = yamlLines.join('\n');
+  const restContent = lines.slice(endIndex + 1).join('\n');
+  
+  // Wrap YAML in code block
+  return `\`\`\`yaml\n${yamlContent}\n\`\`\`${restContent}`;
+};
+
+const MarkdownPreview: React.FC<{ content: string; theme: string }> = ({ content, theme }) => {
+  const processedContent = processYamlFrontmatter(content);
+  
+  return (
   <div className="prose prose-sm dark:prose-invert max-w-none p-6">
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -42,10 +71,11 @@ const MarkdownPreview: React.FC<{ content: string; theme: string }> = ({ content
         },
       }}
     >
-      {content}
+      {processedContent}
     </ReactMarkdown>
   </div>
-);
+  );
+};
 
 const CodePreview: React.FC<{ content: string; language: string; theme: string }> = ({ content, language, theme }) => (
   <div className="h-full overflow-auto text-sm relative">
@@ -143,8 +173,8 @@ export const Preview: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-[#1e1e1e] min-w-[400px] overflow-hidden">
-      <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-gray-50/50 dark:bg-[#2d2d2d]/50">
+    <div className="flex-1 flex flex-col bg-white dark:bg-[#1e1e1e] min-w-96 overflow-hidden">
+      <div className="h-16 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-5 bg-gray-50/50 dark:bg-[#2d2d2d]/50">
         <div className="flex items-center min-w-0">
           {node.type === 'directory' ? <Folder className="w-5 h-5 text-blue-500 mr-3 flex-shrink-0" /> : <FileText className="w-5 h-5 text-gray-500 mr-3 flex-shrink-0" />}
           <div className="truncate">
@@ -154,7 +184,7 @@ export const Preview: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+        <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
           <button
             className="flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
             onClick={() => void openInSystem(node.path)}

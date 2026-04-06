@@ -2,35 +2,63 @@
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --scrollbar-track: rgba(17, 24, 39, 0.08);
-  --scrollbar-thumb: rgba(107, 114, 128, 0.75);
+@layer utilities {
+  /* Hardcoded arbitrary values for padding/margin */
+  .px-\[33px\] { padding-inline: 33px; }
+  .py-\[17px\] { padding-block: 17px; }
+  .px-\[25px\] { padding-inline: 25px; }
+  .py-\[13px\] { padding-block: 13px; }
+  .p-\[17px\] { padding: 17px; }
+  .px-\[13px\] { padding-inline: 13px; }
+  .py-\[9px\] { padding-block: 9px; }
+  .px-\[9px\] { padding-inline: 9px; }
+  .py-\[8px\] { padding-block: 8px; }
 }
 
-.dark {
-  --scrollbar-track: rgba(255, 255, 255, 0.08);
-  --scrollbar-thumb: rgba(156, 163, 175, 0.75);
+@layer base {
+  :root {
+    --scrollbar-track: rgba(17, 24, 39, 0.08);
+    --scrollbar-thumb: rgba(107, 114, 128, 0.75);
+  }
+
+  .dark {
+    --scrollbar-track: rgba(255, 255, 255, 0.08);
+    --scrollbar-thumb: rgba(156, 163, 175, 0.75);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(107, 114, 128, 0.9);
+  }
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+@keyframes splash-spin {
+  to { transform: rotate(360deg); }
 }
 
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* 启动日志区域：隐藏滚动条但保留滚动功能 */
+.log-scroll::-webkit-scrollbar {
+  display: none;
 }
-
-*::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-}
-
-*::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 999px;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(107, 114, 128, 0.9);
+.log-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }

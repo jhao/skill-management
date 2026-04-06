@@ -1,3 +1,9 @@
+export interface StartupLog {
+  message: string;
+  level: 'info' | 'warn' | 'error';
+  elapsed: string;
+}
+
 export interface SkillNode {
   id: string;
   name: string;
@@ -13,6 +19,7 @@ export interface SkillNode {
   description?: string;
   softwareName?: string;
   isSkillRoot?: boolean;
+  isSymlink?: boolean;
   parentId?: string;
   content?: string;
 }
@@ -22,6 +29,11 @@ export interface Settings {
   scanDepth: number;
   theme: 'light' | 'dark';
   language: 'zh' | 'en';
+  aiConfig?: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+  };
 }
 
 export interface AppConfig {
@@ -35,12 +47,17 @@ export interface ScanProgress {
   discoveredCount?: number;
 }
 
+export type PromoteResult =
+  | { success: true; destPath: string }
+  | { success: false; reason: 'symlink_unsupported'; error: string };
+
 export interface ElectronAPI {
   getConfig: () => Promise<AppConfig>;
   updateConfig: (configPatch: Partial<AppConfig>) => Promise<AppConfig>;
   scanSkills: (params: { authorizedPaths: string[]; scanDepth: number }) => Promise<SkillNode[]>;
   getCachedSkills: (params: { authorizedPaths: string[]; scanDepth: number }) => Promise<SkillNode[] | null>;
   onScanProgress: (listener: (progress: ScanProgress) => void) => () => void;
+  onStartupLog: (listener: (log: StartupLog) => void) => () => void;
   readTextFile: (filePath: string) => Promise<string>;
   getFileUrl: (filePath: string) => Promise<string>;
   openPath: (targetPath: string) => Promise<string>;
@@ -52,6 +69,8 @@ export interface ElectronAPI {
     mode: 'copy' | 'cut';
   }) => Promise<{ destinationPath: string }>;
   deletePath: (targetPath: string) => Promise<boolean>;
+  openExternal: (url: string) => Promise<boolean>;
+  promoteToComputer: (sourcePath: string) => Promise<PromoteResult>;
 }
 
 export type AppState = {
@@ -64,4 +83,8 @@ export type AppState = {
   scanCurrentPath: string;
   showSettings: boolean;
   showOnboarding: boolean;
+  showCreateSkill: boolean;
+  appStatus: 'initializing' | 'ready' | 'error';
+  initError: string | null;
+  startupLogs: StartupLog[];
 };

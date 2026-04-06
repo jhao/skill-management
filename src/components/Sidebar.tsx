@@ -107,21 +107,25 @@ const TreeNode: React.FC<{
     <div>
       <div
         className={cn(
-          'flex items-center py-1 px-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 text-sm select-none group',
+          'flex items-center py-2 px-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 text-sm select-none group',
           isSelected && 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 relative',
+          node.isSymlink && !isSelected && 'text-red-500 dark:text-red-400',
         )}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        style={{ paddingLeft: `${depth * 14 + 10}px` }}
         onClick={handleSelect}
         onContextMenu={(event) => onRequestContextMenu(event, node)}
       >
         {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
-        <div className="w-4 h-4 flex items-center justify-center mr-1" onClick={handleToggle}>
+        <div className="w-4 h-4 flex items-center justify-center mr-1.5" onClick={handleToggle}>
           {hasChildren ? isExpanded ? <ChevronDown className="w-3 h-3 text-gray-500" /> : <ChevronRight className="w-3 h-3 text-gray-500" /> : null}
         </div>
-        <div className="mr-1.5">{getFileIcon(node)}</div>
+        <div className="mr-2">{getFileIcon(node)}</div>
         <span className="truncate flex-1">{renderLabel(displayName)}</span>
+        {node.isSymlink && (
+          <span className="ml-2 text-[0.5625rem] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400 font-mono">link</span>
+        )}
         {node.isSkillRoot && (
-          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-mono">root</span>
+          <span className="ml-1.5 text-[0.5625rem] px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-mono">root</span>
         )}
       </div>
       {isExpanded && hasChildren && (
@@ -147,9 +151,9 @@ const LevelGroup: React.FC<{
   if (nodes.length === 0) return null;
 
   return (
-    <div className="mb-2">
-      <div className="flex items-center px-2 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none" onClick={() => setIsExpanded(!isExpanded)}>
-        {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500 mr-1" /> : <ChevronRight className="w-4 h-4 text-gray-500 mr-1" />}
+    <div className="mb-4">
+      <div className="flex items-center px-3 py-2.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none" onClick={() => setIsExpanded(!isExpanded)}>
+        {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500 mr-2" /> : <ChevronRight className="w-4 h-4 text-gray-500 mr-2" />}
         <div className={cn('flex items-center px-2 py-0.5 rounded-md text-xs font-medium mr-2', getLevelColor(level))}>
           <span className="mr-1.5">{getLevelIcon(level)}</span>
           {getLevelLabel(level, settings.language)}
@@ -194,6 +198,7 @@ export const Sidebar: React.FC = () => {
     deletePathFromDisk,
     clipboard,
     refreshFromCache,
+    startScan,
   } = useAppContext();
   const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -316,7 +321,7 @@ export const Sidebar: React.FC = () => {
     try {
       const ok = await refreshFromCache();
       if (!ok) {
-        window.alert(t('未找到可用扫描缓存，请先执行一次“再次扫描”。', 'No cached scan result found. Please run one full rescan first.'));
+        window.alert(t('未找到可用扫描缓存，请先执行一次“再次扫描"。', 'No cached scan result found. Please run one full rescan first.'));
       }
     } catch {
       window.alert(t('刷新失败，请稍后重试。', 'Refresh failed. Please try again later.'));
@@ -342,6 +347,54 @@ export const Sidebar: React.FC = () => {
     }
   };
 
+  const handlePromoteToComputer = async () => {
+    if (contextMenu == null || contextMenu.node.type !== 'directory') return;
+    if (window.electronAPI == null) {
+      window.alert(t('此功能仅在桌面版中可用。', 'This feature is only available in the desktop app.'));
+      setContextMenu(null);
+      return;
+    }
+
+    const nodePath = contextMenu.node.path;
+    setContextMenu(null);
+
+    const confirmed = window.confirm(
+      t(
+        '这个动作会将当前目录文件移至用户目录下的 .allskills 目录下，并在现在的位置创建一个文件夹的软连接。\n\n确认执行吗？',
+        'This will move the current directory to ~/.allskills and create a symlink at its original location.\n\nProceed?',
+      ),
+    );
+    if (!confirmed) return;
+
+    try {
+      const result = await window.electronAPI.promoteToComputer(nodePath);
+
+      if (!result.success) {
+        const openBing = window.confirm(
+          t(
+            '当前系统不支持软连接，无法完成操作。\n\n是否打开浏览器搜索如何开启软连接功能？',
+            'Symlinks are not supported on this system. Unable to complete the operation.\n\nOpen browser to search for how to enable symlinks?',
+          ),
+        );
+        if (openBing) {
+          await window.electronAPI.openExternal('https://cn.bing.com/search?q=%E8%BD%AF%E8%BF%9E%E6%8E%A5%E5%AE%9A%E4%B9%89');
+        }
+        return;
+      }
+
+      window.alert(
+        t(
+          `提升成功！\n\n文件已移至: ${result.destPath}\n原位置已创建软连接。\n\n即将重新扫描以刷新技能列表。`,
+          `Promotion succeeded!\n\nMoved to: ${result.destPath}\nA symlink was created at the original location.\n\nRescanning to refresh the skill list.`,
+        ),
+      );
+      await startScan();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('操作失败，请重试。', 'Operation failed, please try again.');
+      window.alert(t(`提升失败: ${message}`, `Failed: ${message}`));
+    }
+  };
+
   const visibleCount =
     (groupedSkills.computer?.length || 0) +
     (groupedSkills.software?.length || 0) +
@@ -357,8 +410,8 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <div className="relative w-[280px] flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1e1e1e] overflow-y-auto flex flex-col h-full">
-      <div className="p-3 sticky top-0 bg-gray-50/90 dark:bg-[#1e1e1e]/90 backdrop-blur z-10 border-b border-gray-200 dark:border-gray-800">
+    <div className="relative w-70 flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1e1e1e] overflow-y-auto flex flex-col h-full">
+      <div className="p-4 sticky top-0 bg-gray-50/90 dark:bg-[#1e1e1e]/90 backdrop-blur z-10 border-b border-gray-200 dark:border-gray-800">
         <div className="relative">
           <input
             type="text"
@@ -366,17 +419,17 @@ export const Sidebar: React.FC = () => {
             value={searchQuery}
             ref={searchInputRef}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className="w-full bg-white dark:bg-[#2d2d2d] border border-gray-300 dark:border-gray-700 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-200"
+            className="w-full bg-white dark:bg-[#2d2d2d] border border-gray-300 dark:border-gray-700 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-200"
           />
-          <svg className="w-4 h-4 absolute left-2.5 top-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <div className="mt-2">
-          <div className="flex items-stretch gap-1.5">
+        <div className="mt-3">
+          <div className="flex items-stretch gap-2">
             <button
               onClick={() => void handleAddManualPath()}
-              className="flex-1 inline-flex items-center justify-center px-2 py-1.5 text-xs rounded border border-indigo-600 bg-indigo-600 text-white"
+              className="flex-1 inline-flex items-center justify-center px-2 py-2 text-xs rounded border border-indigo-600 bg-indigo-600 text-white"
             >
               <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
               {t('选择目录并添加路径', 'Choose Folder to Add')}
@@ -384,21 +437,21 @@ export const Sidebar: React.FC = () => {
             <button
               title={t('从已扫描结果刷新左侧列表', 'Refresh sidebar from cached scan result')}
               onClick={() => void handleRefreshFromCache()}
-              className="inline-flex items-center justify-center w-8 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#2d2d2d] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="inline-flex items-center justify-center w-9 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#2d2d2d] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-          {t('添加后请在设置里点击“再次扫描”更新左侧分类。', 'After adding, click "Rescan" in Settings to refresh categories.')}
+        <p className="mt-2 text-[0.6875rem] text-gray-500 dark:text-gray-400">
+          {t('添加后请在设置里点击"再次扫描"更新左侧分类。', 'After adding, click “Rescan" in Settings to refresh categories.')}
         </p>
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {filterTabs.map((tab) => (
             <button
               key={tab.key}
               className={cn(
-                'px-2 py-0.5 text-xs rounded border',
+                'px-2.5 py-1 text-xs rounded border',
                 levelFilter === tab.key
                   ? 'bg-indigo-600 text-white border-indigo-600'
                   : 'bg-white dark:bg-[#2d2d2d] text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700',
@@ -410,19 +463,19 @@ export const Sidebar: React.FC = () => {
           ))}
         </div>
       </div>
-      <div className="py-2">
+      <div className="py-3">
         <LevelGroup level="computer" nodes={groupedSkills.computer || []} onRequestContextMenu={handleRequestContextMenu} renderLabel={highlight} />
         <LevelGroup level="software" nodes={groupedSkills.software || []} onRequestContextMenu={handleRequestContextMenu} renderLabel={highlight} />
         <LevelGroup level="workdir" nodes={groupedSkills.workdir || []} onRequestContextMenu={handleRequestContextMenu} renderLabel={highlight} />
         <LevelGroup level="project" nodes={groupedSkills.project || []} onRequestContextMenu={handleRequestContextMenu} renderLabel={highlight} />
         {visibleCount === 0 && (
-          <div className="px-3 py-6 text-sm text-gray-500 text-center">{t('无匹配结果', 'No results')}</div>
+          <div className="px-4 py-8 text-sm text-gray-500 text-center">{t('无匹配结果', 'No results')}</div>
         )}
       </div>
 
       {contextMenu != null && (
         <div
-          className="fixed z-50 min-w-[190px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#202020] shadow-xl p-1"
+          className="fixed z-50 min-w-48 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#202020] shadow-xl p-1"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -469,6 +522,17 @@ export const Sidebar: React.FC = () => {
               void handleDelete();
             }}
           />
+          {contextMenu.node.type === 'directory' && contextMenu.node.level !== 'computer' && (
+            <>
+              <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+              <MenuItem
+                label={t('提升至计算机级别', 'Promote to Computer Level')}
+                onClick={() => {
+                  void handlePromoteToComputer();
+                }}
+              />
+            </>
+          )}
         </div>
       )}
     </div>

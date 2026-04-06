@@ -20,7 +20,7 @@ export const ScanOverlay: React.FC = () => {
           <motion.div 
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
-            className="w-[480px] bg-white dark:bg-[#2d2d2d] rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-gray-700"
+            className="w-[30rem] bg-white dark:bg-[#2d2d2d] rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-gray-700"
           >
             <div className="flex flex-col items-center text-center">
               <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-6" />

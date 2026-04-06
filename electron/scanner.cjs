@@ -24,6 +24,8 @@ function normalizeHome(inputPath, homeDir) {
 
 function determineLevel(absPath) {
   const normalized = absPath.replace(/\\/g, '/');
+  // ~/.allskills 下的 skill 目录视为计算机级
+  if (normalized.includes('/.allskills/') || normalized.endsWith('/.allskills')) return 'computer';
   const depth = normalized.split('/').filter(Boolean).length;
   if (depth <= 2) return 'computer';
   if (normalized.includes('/Application Support/') || normalized.includes('/Applications/')) return 'software';
@@ -55,6 +57,14 @@ async function safeReadDir(dirPath) {
 async function safeStat(targetPath) {
   try {
     return await fs.stat(targetPath);
+  } catch {
+    return null;
+  }
+}
+
+async function safeLstat(targetPath) {
+  try {
+    return await fs.lstat(targetPath);
   } catch {
     return null;
   }
@@ -128,7 +138,12 @@ async function readSkillMetadata(rootDir) {
 }
 
 async function buildNode(absPath, maxDepth, skillRootsSet, parentId) {
-  const stat = await safeStat(absPath);
+  const lstat = await safeLstat(absPath);
+  if (!lstat) return null;
+
+  const isSymlink = lstat.isSymbolicLink();
+  // 跟随软连接获取真实类型
+  const stat = isSymlink ? await safeStat(absPath) : lstat;
   if (!stat) return null;
 
   const isDirectory = stat.isDirectory();
@@ -151,6 +166,7 @@ async function buildNode(absPath, maxDepth, skillRootsSet, parentId) {
     description: metadata.description,
     softwareName: extractSoftwareName(absPath),
     isSkillRoot,
+    isSymlink,
     parentId,
   };
 
@@ -180,9 +196,14 @@ async function buildNode(absPath, maxDepth, skillRootsSet, parentId) {
 
 function runFind(rootPath, depthLimit, onProgress) {
   return new Promise((resolve) => {
-    // Intentionally do not prune dot-directories.
-    // Hidden paths (for example `.claude`) must always be discoverable during scan.
-    const args = [rootPath, '-maxdepth', String(depthLimit), '-iname', 'skill.md', '-print'];
+    // 跳过 .Trash 目录；保留 dot 目录（如 .claude）以确保能发现隐藏路径
+    const args = [
+      rootPath,
+      '-maxdepth', String(depthLimit),
+      '(', '-name', '.Trash', '-prune', ')',
+      '-o',
+      '(', '-iname', 'skill.md', '-print', ')',
+    ];
     const foundRoots = new Set();
 
     let stdoutBuffer = '';
@@ -332,7 +353,16 @@ function mergeSoftwareNodes(nodes) {
 
 async function scanSkillTrees(options) {
   const { authorizedPaths, scanDepth, homeDir, onProgress } = options;
-  const resolvedRoots = authorizedPaths
+
+  // 自动将 ~/.allskills 加入扫描路径（如果存在），且去重
+  const allSkillsDir = path.join(homeDir, '.allskills');
+  const rawPaths = [...authorizedPaths];
+  const allSkillsStat = await safeStat(allSkillsDir);
+  if (allSkillsStat && allSkillsStat.isDirectory() && !rawPaths.includes(allSkillsDir) && !rawPaths.includes('~/.allskills')) {
+    rawPaths.push(allSkillsDir);
+  }
+
+  const resolvedRoots = rawPaths
     .map((p) => normalizeHome(p, homeDir))
     .map((p) => path.resolve(p));
 

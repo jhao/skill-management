@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('scan:progress', handler);
   },
 
+  onStartupLog: (listener) => {
+    const handler = (_event, payload) => listener(payload);
+    ipcRenderer.on('startup:log', handler);
+    return () => ipcRenderer.removeListener('startup:log', handler);
+  },
+
   readTextFile: (filePath) => ipcRenderer.invoke('file:readText', filePath),
   getFileUrl: (filePath) => ipcRenderer.invoke('file:getUrl', filePath),
 
@@ -20,4 +26,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectDirectory: () => ipcRenderer.invoke('system:selectDirectory'),
   transferPath: (payload) => ipcRenderer.invoke('file:transferPath', payload),
   deletePath: (targetPath) => ipcRenderer.invoke('file:deletePath', targetPath),
+  openExternal: (url) => ipcRenderer.invoke('system:openExternal', url),
+  promoteToComputer: (sourcePath) => ipcRenderer.invoke('skill:promoteToComputer', sourcePath),
 });

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { X, Trash2, FolderOpen, Palette, Search, Info } from 'lucide-react';
+import { X, Trash2, FolderOpen, Palette, Search, Info, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const SettingsModal: React.FC = () => {
   const { settings, setSettings, showSettings, setShowSettings, startScan, isScanning } = useAppContext();
   const [localSettings, setLocalSettings] = useState(settings);
-  const [activeTab, setActiveTab] = useState<'appearance' | 'scan' | 'about'>('appearance');
+  const [activeTab, setActiveTab] = useState<'appearance' | 'scan' | 'ai' | 'about'>('appearance');
 
   React.useEffect(() => {
     setLocalSettings(settings);
@@ -55,13 +55,14 @@ export const SettingsModal: React.FC = () => {
   };
 
   const tabs: Array<{
-    key: 'appearance' | 'scan' | 'about';
+    key: 'appearance' | 'scan' | 'ai' | 'about';
     labelZh: string;
     labelEn: string;
     icon: React.ReactNode;
   }> = [
     { key: 'appearance', labelZh: '外观', labelEn: 'Appearance', icon: <Palette className="w-4 h-4" /> },
     { key: 'scan', labelZh: '扫描', labelEn: 'Scan', icon: <Search className="w-4 h-4" /> },
+    { key: 'ai', labelZh: 'AI配置', labelEn: 'AI Config', icon: <Sparkles className="w-4 h-4" /> },
     { key: 'about', labelZh: '关于', labelEn: 'About', icon: <Info className="w-4 h-4" /> },
   ];
 
@@ -72,7 +73,7 @@ export const SettingsModal: React.FC = () => {
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="w-[860px] max-w-[96vw] bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800"
+          className="w-[53.75rem] max-w-[96vw] bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
@@ -87,7 +88,7 @@ export const SettingsModal: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex min-h-[520px] max-h-[70vh]">
+          <div className="flex min-h-[32.5rem] max-h-[70vh]">
             <aside className="w-56 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#181818] p-3">
               <div className="space-y-1">
                 {tabs.map((tab) => (
@@ -132,7 +133,7 @@ export const SettingsModal: React.FC = () => {
                         >
                           {t('浅色', 'Light')}
                         </button>
-                        <button 
+                        <button
                           onClick={() => setLocalSettings({...localSettings, theme: 'dark'})}
                           className={`px-3 py-1 text-sm rounded-md transition-colors ${localSettings.theme === 'dark' ? 'bg-[#2d2d2d] text-gray-100 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                         >
@@ -209,10 +210,63 @@ export const SettingsModal: React.FC = () => {
                 </div>
               )}
 
+              {activeTab === 'ai' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">{t('AI配置', 'AI Configuration')}</h3>
+                    <div className="bg-gray-50 dark:bg-[#2d2d2d] rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('API Base URL', 'API Base URL')}</label>
+                        <input
+                          type="text"
+                          value={localSettings.aiConfig?.baseUrl || ''}
+                          onChange={(e) => setLocalSettings({
+                            ...localSettings,
+                            aiConfig: { ...localSettings.aiConfig, baseUrl: e.target.value }
+                          })}
+                          placeholder="https://api.openai.com/v1"
+                          className="w-full bg-white dark:bg-[#1e1e1e] border border-gray-300 dark:border-gray-600 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('API Key', 'API Key')}</label>
+                        <input
+                          type="password"
+                          value={localSettings.aiConfig?.apiKey || ''}
+                          onChange={(e) => setLocalSettings({
+                            ...localSettings,
+                            aiConfig: { ...localSettings.aiConfig, apiKey: e.target.value }
+                          })}
+                          placeholder="sk-..."
+                          className="w-full bg-white dark:bg-[#1e1e1e] border border-gray-300 dark:border-gray-600 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('模型', 'Model')}</label>
+                        <input
+                          type="text"
+                          value={localSettings.aiConfig?.model || ''}
+                          onChange={(e) => setLocalSettings({
+                            ...localSettings,
+                            aiConfig: { ...localSettings.aiConfig, model: e.target.value }
+                          })}
+                          placeholder="gpt-4"
+                          className="w-full bg-white dark:bg-[#1e1e1e] border border-gray-300 dark:border-gray-600 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'about' && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">{t('关于', 'About')}</h3>
                   <div className="bg-gray-50 dark:bg-[#2d2d2d] rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-3">
+                    <div className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-medium">{t('版本', 'Version')}：</span>
+                      <span className="ml-1 font-mono">{__APP_VERSION__}</span>
+                    </div>
                     <div className="text-sm text-gray-700 dark:text-gray-300">
                       <span className="font-medium">{t('作者', 'Author')}：</span>
                       <span className="ml-1 font-mono">hao.jin@live.cn</span>
@@ -242,7 +296,7 @@ export const SettingsModal: React.FC = () => {
             >
               {t('取消', 'Cancel')}
             </button>
-            <button 
+            <button
               onClick={() => void handleSave()}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors"
             >

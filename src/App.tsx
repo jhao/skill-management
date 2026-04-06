@@ -8,9 +8,11 @@ import { Details } from './components/Details';
 import { SettingsModal } from './components/SettingsModal';
 import { Onboarding } from './components/Onboarding';
 import { ScanOverlay } from './components/ScanOverlay';
+import { SplashScreen } from './components/SplashScreen';
+import { CreateSkillModal } from './components/CreateSkillModal';
 
 function AppContent() {
-  const { selectedNodeId, getNodeById, deletePathFromDisk, settings } = useAppContext();
+  const { selectedNodeId, getNodeById, deletePathFromDisk, settings, appStatus, initError, showCreateSkill, setShowCreateSkill } = useAppContext();
 
   React.useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -44,6 +46,10 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handler);
   }, [selectedNodeId, settings.language, getNodeById, deletePathFromDisk]);
 
+  if (appStatus === 'initializing' || appStatus === 'error') {
+    return <SplashScreen />;
+  }
+
   return (
     <div className="flex flex-col h-screen w-full bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-gray-100 overflow-hidden font-sans">
       <Topbar />
@@ -55,6 +61,7 @@ function AppContent() {
       <SettingsModal />
       <Onboarding />
       <ScanOverlay />
+      <CreateSkillModal isOpen={showCreateSkill} onClose={() => setShowCreateSkill(false)} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 {
   "name": "skill-management",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.2",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -13,9 +13,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "pack:win": "npm run build && electron-builder --win nsis --x64",
-    "pack:mac:arm64": "npm run build && electron-builder --mac dmg --arm64",
-    "pack:mac:x64": "npm run build && electron-builder --mac dmg --x64",
+    "pack:win": "npm version patch --no-git-tag-version && npm run build && electron-builder --win nsis --x64",
+    "pack:mac:arm64": "npm version patch --no-git-tag-version && npm run build && electron-builder --mac dmg --arm64",
+    "pack:mac:x64": "npm version patch --no-git-tag-version && npm run build && electron-builder --mac dmg --x64",
     "pack:all": "bash ./scripts/package-all.sh"
   },
   "dependencies": {
@@ -26,7 +26,6 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "electron": "^36.1.0",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.38.0",
@@ -40,6 +39,7 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "electron": "^36.1.0",
     "@types/node": "^22.14.0",
     "@types/react-syntax-highlighter": "^15.5.13",
     "autoprefixer": "^10.4.21",
@@ -65,6 +65,7 @@
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "mac": {
       "category": "public.app-category.developer-tools",
+      "icon": "assets/icons/app-icon.icns",
       "target": [
         {
           "target": "dmg",
