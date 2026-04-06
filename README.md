@@ -26,6 +26,10 @@ npm run dev:desktop
 
 说明：该命令会先启动 Vite，再由 Electron 加载 `http://127.0.0.1:3000`。
 
+## 系统功能图
+<img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/46c491b5-701c-49b7-9893-c75b7bb303db" />
+
+
 ## 构建
 
 ```bash
